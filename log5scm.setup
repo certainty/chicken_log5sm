@@ -1,0 +1,7 @@
+(compile -s -d0 -O3 log5scm.scm -j log5scm)
+(compile -s -d0 -O3 log5scm.import.scm)
+
+(install-extension
+  'log5scm
+  '("log5scm.import.so" "log5scm.so")
+  '((version 0.3)))
