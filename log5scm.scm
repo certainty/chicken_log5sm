@@ -30,7 +30,7 @@
 
 
 (module log5scm-lolevel
-(*default-logical-connective* *categories* *ignore-category-spec* expand-category-spec sender-matches-spec?)
+(default-logical-connective *defined-categories* *ignore-category-spec* expand-category-spec sender-matches-spec?)
 
 (import chicken scheme)
 (use extras data-structures ports srfi-1 srfi-69)
@@ -41,24 +41,19 @@
 ;; as the name suggests, a way to express buckets for
 ;; log-messages. Those buckets may later be bound to senders and thus
 ;; enable the program to put messages at the right places.
-(define (logical-connective? x)
-  (member x '(and not or)))
 
 ;;by default all categories are or'ed together  
-(define *default-logical-connective* (make-parameter 'or))
+(define default-logical-connective (make-parameter 'or))
 
 ;;we need to store defined categories for late use
 ;;NOTE: all categories inside this container are already expanded
-(define *categories* (make-parameter (make-hash-table)))
+(define *defined-categories* (make-parameter (make-hash-table)))
 
-(define (name->category name)
-  (hash-table-ref/default (*categories*) name #f))
-
-;; Find the category with the given name and expand it
-;; if needed
-(define (expand-category name)
-  (let ((spec (name->category name)))
-    (if spec  (if (list? spec) (expand-category-spec spec) spec) name)))
+;; This variable can be set to a category spec that makes log-for
+;; calls expand into (void) when it matches.
+(define *ignore-category-spec*
+  (let ((spec (get-environment-variable "LOG5SCM_CAT_SPEC")))
+    (and spec (with-input-from-string spec read)))) 
 
 ;; Expansion is straight forward.
 ;; Any occurence of a mere name is replaced by its expanded form.
@@ -77,7 +72,17 @@
    ((list? spec)
     `(,@(if (logical-connective? (car spec))
             `(,(car spec) ,@(map expand-category-spec (cdr spec)))
-            `(,(*default-logical-connective*) ,@(map expand-category-spec spec)))))))
+            `(,(default-logical-connective) ,@(map expand-category-spec spec)))))))
+
+(define (expand-category name)
+  (let ((spec (name->category name)))
+    (if spec  (if (list? spec) (expand-category-spec spec) spec) name)))
+
+(define (name->category name)
+  (hash-table-ref/default (*defined-categories*) name #f))
+
+(define (logical-connective? x)
+  (member x '(and not or)))
 
 (define (determine-variables spec)
   (let ((positive '()) (negative '()))
@@ -94,16 +99,10 @@
     (walk spec)
     (values positive negative)))
 
-
-;;does the sender-spec match the cat-spec?
-;;sender and cat-spec should both be expanded
 (define (sender-matches-spec?  sender-spec cat-spec)
   (receive (pos neg) (determine-variables cat-spec)
     (and (category-spec-matches? pos sender-spec) (not (category-spec-matches? neg sender-spec )))))
 
-;;We determine if the current specification of the sender matches the
-;;category.
-;;We simply decide if we shall use this sender to send the message
 (define (category-spec-matches? cat spec) 
   (define (bool-walk spec)
     (cond
@@ -117,20 +116,13 @@
         (else (map bool-walk spec))))))
   (bool-walk spec))
 
-
-;; This variable can be set to a category spec that makes log-for
-;; calls expand into (void) when it matches.
-(define *ignore-category-spec*
-  (let ((spec (get-environment-variable "LOG5SCM_CAT_SPEC")))
-    (and spec (with-input-from-string spec read)))) 
-
 )
 
 (module log5scm
-  (*default-logical-connective*
-   *categories*
-   *senders*
-   *outputs*
+  (default-logical-connective
+   *defined-categories*
+   *defined-senders*
+   *defined-outputs*
    define-category
    dump-categories
    add-sender
@@ -143,7 +135,7 @@
    add-output
    define-output
    find-and-apply-senders
-   *current-contexts*
+   active-contexts
    current-context
    push-context
    pop-context
@@ -168,14 +160,14 @@
 (define-syntax define-category
   (syntax-rules ()
     ((_ name)
-     (hash-table-set! (*categories*) (quote name) (quote name)))
+     (hash-table-set! (*defined-categories*) (quote name) (quote name)))
     ((_ name (spec more-spec ...))
-     (hash-table-set! (*categories*) (quote name) (expand-category-spec (quote (spec more-spec ...)))))))
+     (hash-table-set! (*defined-categories*) (quote name) (expand-category-spec (quote (spec more-spec ...)))))))
 
 
 ;;print a list of all currently defined categories to standard-output
 (define (dump-categories)
-  (hash-table-map (*categories*) (lambda (k v) (sprintf "~A -> ~A" k v))))
+  (hash-table-map (*defined-categories*) (lambda (k v) (sprintf "~A -> ~A" k v))))
 
 
  ;; 2) Senders
@@ -189,22 +181,22 @@
  ;; logging
 
  ;; Again senders are assiciated with an eq' hash-table
- (define *senders* (make-parameter (make-hash-table)))
- (defstruct sender name output-spec category-spec handler)
+ (define *defined-senders* (make-parameter (make-hash-table)))
+ (defstruct sender name output-format category-spec handler)
  
  (define (add-sender sender)
    (let ((cats (sender-category-spec sender))
-         (outputs (sender-output-spec sender)))
+         (outputs (sender-output-format sender)))
      (when (and cats (not (list? cats)))
        (sender-category-spec-set! sender (list cats)))
      (when (and outputs (not (list? outputs)))
-       (sender-output-spec-set! sender (list outputs)))
-     (hash-table-set! (*senders*) (sender-name sender) sender)))
+       (sender-output-format-set! sender (list outputs)))
+     (hash-table-set! (*defined-senders*) (sender-name sender) sender)))
 
  ;;apply proc to all senders that match the given categories
  (define (matching-senders-for-each proc category-spec)
    (let ((exp-cat-spec (expand-category-spec category-spec)))
-     (hash-table-for-each (*senders*)
+     (hash-table-for-each (*defined-senders*)
                           (lambda (name sender)
                             (if (sender-matches-spec? (expand-category-spec (sender-category-spec sender)) exp-cat-spec)
                                 (proc name sender))))))
@@ -232,25 +224,25 @@
      (closelog)))
  
  ;; To stard a sender we provide a syntax that looks like this
- ;; (start-sender name (sender-ctor) (category-spec) (output-spec))
+ ;; (start-sender name (sender-ctor) (category-spec) (output-format))
  ;; (start-sender name (sender-ctor) (category cat-spec))
- ;; (start-sender name (sender-ctor) (category cat-spec) (output output-spec))
+ ;; (start-sender name (sender-ctor) (category cat-spec) (output output-format))
  (define-syntax start-sender
    (syntax-rules (output category)
      ((_ name (sender-type arg1 ...))
       (add-sender (make-sender name: (quote name) handler: (sender-type arg1 ...))))
      ((_ name (sender-type arg1 ...) (category cat-spec))
       (add-sender (make-sender name: (quote name) handler: (sender-type arg1 ...) category-spec: (quote  cat-spec))))
-     ((_ name (sender-type arg1 ...) (output output-spec))
-      (add-sender (make-sender name: (quote name) handler: (sender-type arg1 ...) output-spec: (quote output-spec))))
-     ((_ name (sender-type arg1 ...) (output output-spec) (category cat-spec))
-      (add-sender (make-sender name: (quote name) handler: (sender-type arg1 ...) category-spec: (quote cat-spec) output-spec: (quote output-spec))))
-     ((_ name (sender-type arg1 ...) (category cat-spec) (output output-spec))
-      (add-sender (make-sender name: (quote name) handler: (sender-type arg1 ...) category-spec: (quote  cat-spec) output-spec: (quote output-spec))))))
+     ((_ name (sender-type arg1 ...) (output output-format))
+      (add-sender (make-sender name: (quote name) handler: (sender-type arg1 ...) output-format: (quote output-format))))
+     ((_ name (sender-type arg1 ...) (output output-format) (category cat-spec))
+      (add-sender (make-sender name: (quote name) handler: (sender-type arg1 ...) category-spec: (quote cat-spec) output-format: (quote output-format))))
+     ((_ name (sender-type arg1 ...) (category cat-spec) (output output-format))
+      (add-sender (make-sender name: (quote name) handler: (sender-type arg1 ...) category-spec: (quote  cat-spec) output-format: (quote output-format))))))
  
  ;;dump currently defined senders to current-output-port
  (define (dump-senders)
-   (hash-table-map (*senders*) (lambda (k v) (sprintf "~A -> ~A | ~A " k (sender-category-spec v) (sender-output-spec v)))))
+   (hash-table-map (*defined-senders*) (lambda (k v) (sprintf "~A -> ~A | ~A " k (sender-category-spec v) (sender-output-format v)))))
 
 
  ;; 3) outputs
@@ -260,17 +252,17 @@
  ;; processed in order when a message is generated
 
 ;; we need to remember some things about the current environment 
-(define *current-message*  (make-parameter ""))
-(define *current-category* (make-parameter #f))
+(define current-message  (make-parameter ""))
+(define current-category (make-parameter #f))
 
 
 
  ;; as with senders and categories, outputs are stored in a hashtable
  ;; so that we can reference them by name
- (define *outputs* (make-parameter (make-hash-table)))
+ (define *defined-outputs* (make-parameter (make-hash-table)))
  
  (define (add-output name proc)
-   (hash-table-set! (*outputs*) name proc))
+   (hash-table-set! (*defined-outputs*) name proc))
 
  ;; a simple way to define outputs is provided
  ;; by the define-output syntax
@@ -281,29 +273,29 @@
 
 
  ;; the following are standard outputters
-(define-output message (*current-message*))
-(define-output category (sprintf "~A" (*current-category*)))
+(define-output message (current-message))
+(define-output category (sprintf "~A" (current-category)))
 (define-output context (let ((ctx (current-context)))
                          (if ctx (sprintf "~A > " ctx) "")))
 
 
  ;; by default we output the category followed by the message
- (define *default-output-spec* (make-parameter '(context category message)))
+ (define default-output-format (make-parameter '(context category message)))
 
 
  ;; contexts
-(define *current-contexts* (make-parameter '()))
+(define active-contexts (make-parameter '()))
 (define (current-context)
-  (if (and (list? (*current-contexts*)) (not (null? (*current-contexts*))))
-      (car (*current-contexts*))
+  (if (and (list? (active-contexts)) (not (null? (active-contexts))))
+      (car (active-contexts))
       #f))
 
 (define (push-context context)
-  (*current-contexts* (cons context (*current-contexts*))))
+  (active-contexts (cons context (active-contexts))))
 
 (define (pop-context)
-  (if (and (list? (*current-contexts*)) (not (null? (*current-contexts*))))
-      (*current-contexts* (cdr (*current-contexts*)))))
+  (if (and (list? (active-contexts)) (not (null? (active-contexts))))
+      (active-contexts (cdr (active-contexts)))))
 
 (define (call-with-context context thunk)
   (dynamic-wind
@@ -321,13 +313,13 @@
  ;; senders that match the given category-spec and applies the
  ;; sender's handler to the passed message
  (define (find-and-apply-senders category-spec fmt . args)
-   (parameterize ((*current-message* (apply sprintf fmt args))
-                  (*current-category* (string-join (map symbol->string category-spec) "::")))
+   (parameterize ((current-message (apply sprintf fmt args))
+                  (current-category (string-join (map symbol->string category-spec) "::")))
      (matching-senders-for-each
       (lambda (name sender)
         (let ((outputs (map (lambda (o)
-                              ((hash-table-ref/default (*outputs*) o (lambda () ""))))
-                            (or (sender-output-spec sender) (*default-output-spec*)))))
+                              ((hash-table-ref/default (*defined-outputs*) o (lambda () ""))))
+                            (or (sender-output-format sender) (default-output-format)))))
           ((sender-handler sender)
            (string-join outputs " ")))) category-spec)))
 

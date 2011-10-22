@@ -1,10 +1,3 @@
-;; 
-;; Author: David Krentzlin
-;; 
-;; Created: Mi Aug 25 21:57:42 2010 (CEST)
-;; Last-Updated: Mi Aug 25 22:02:47 2010 (CEST)
-;;           By:
-
 (use log5scm syslog)
 
 (define-category info)
