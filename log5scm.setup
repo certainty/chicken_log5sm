@@ -1,7 +1,8 @@
-(compile -s -d0 -O3 log5scm.scm -j log5scm)
+(compile -s -d0 -O3 log5scm.scm -j log5scm -j log5scm-lolevel)
 (compile -s -d0 -O3 log5scm.import.scm)
+(compile -s -d0 -O3 log5scm-lolevel.import.scm)
 
 (install-extension
   'log5scm
-  '("log5scm.import.so" "log5scm.so")
+  '("log5scm.so" "log5scm.import.so" "log5scm-lolevel.import.so")
   '((version 0.3)))
