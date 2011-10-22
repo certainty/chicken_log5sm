@@ -6,4 +6,4 @@
  (doc-from-wiki)
  (depends defstruct syslog)
  (test-depends test)
- (files ".hgignore" "log5scm.meta" "log5scm.release-info" "log5scm.scm" "log5scm.setup" "tests/examples.scm" "tests/run.scm" "tests/test.log"))
+ (files ".hgignore" "log5scm.meta" "log5scm.release-info" "log5scm.scm" "tests/examples.scm" "tests/run.scm" "tests/test.log"))
