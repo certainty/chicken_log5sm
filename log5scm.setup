@@ -5,4 +5,4 @@
 (install-extension
   'log5scm
   '("log5scm.so" "log5scm.import.so" "log5scm-lolevel.import.so")
-  '((version 0.3)))
+  '((version 0.4)))
