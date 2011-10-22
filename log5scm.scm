@@ -52,7 +52,7 @@
 ;; This variable can be set to a category spec that makes log-for
 ;; calls expand into (void) when it matches.
 (define *ignore-category-spec*
-  (let ((spec (get-environment-variable "LOG5SCM_CAT_SPEC")))
+  (let ((spec (get-environment-variable "LOG5SCM_IGNORE_CATEGORIES")))
     (and spec (with-input-from-string spec read)))) 
 
 ;; Expansion is straight forward.
@@ -123,7 +123,10 @@
    *defined-categories*
    *defined-senders*
    *defined-outputs*
+   current-category
+   current-message
    define-category
+   default-output-format
    dump-categories
    add-sender
    start-sender
@@ -133,6 +136,9 @@
    dump-senders
    make-sender
    add-output
+   <context
+   <message
+   <category
    define-output
    find-and-apply-senders
    active-contexts
@@ -273,14 +279,14 @@
 
 
  ;; the following are standard outputters
-(define-output message (current-message))
-(define-output category (sprintf "~A" (current-category)))
-(define-output context (let ((ctx (current-context)))
+(define-output <message (current-message))
+(define-output <category (sprintf "~A" (current-category)))
+(define-output <context (let ((ctx (current-context)))
                          (if ctx (sprintf "~A > " ctx) "")))
 
 
  ;; by default we output the category followed by the message
- (define default-output-format (make-parameter '(context category message)))
+ (define default-output-format (make-parameter '(<context <category <message)))
 
 
  ;; contexts
