@@ -28,6 +28,7 @@
 ;; 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+
 (module log5scm-lolevel
 (*default-logical-connective* *categories* *ignore-category-spec* expand-category-spec sender-matches-spec?)
 
