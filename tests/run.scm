@@ -15,20 +15,20 @@
 (test-group "categories"
             (test "Expansion: does work"
                   '(and cat5 (or cat1 cat2))
-                  (parameterize ((*categories* (make-hash-table)))
+                  (parameterize ((*defined-categories* (make-hash-table)))
                     (define-category cat3 (or cat1 cat2))
                     (define-category cat4 (and cat5 cat3))
                     (expand-category-spec 'cat4)))
             (test "Expansion: default logical connective"
                   '(and cat5 (and cat1 cat2))
-                  (parameterize ((*categories* (make-hash-table))
-                                 (*default-logical-connective* 'and))
+                  (parameterize ((*defined-categories* (make-hash-table))
+                                 (default-logical-connective 'and))
                     (define-category cat3 (cat1 cat2))
                     (define-category cat4 (and cat5 cat3))
                     (expand-category-spec 'cat4)))
             (test "Expansion: (identity) does work"
                   'cat1
-                  (parameterize ((*categories* (make-hash-table)))
+                  (parameterize ((*defined-categories* (make-hash-table)))
                     (expand-category-spec 'cat1)))
 
 
@@ -46,20 +46,20 @@
 (test-group "context"
             (test "push context"
                   (list "test")
-                  (parameterize ((*current-contexts* '()))
+                  (parameterize ((active-contexts '()))
                     (push-context "test")
-                    (*current-contexts*)))
+                    (active-contexts)))
 
             (test "pop context"
                   (list)
-                  (parameterize ((*current-contexts* '()))
+                  (parameterize ((active-contexts '()))
                     (push-context "test")
                     (pop-context)
-                    (*current-contexts*)))
+                    (active-contexts)))
 
             (test "access current context"
                   "test"
-                  (parameterize ((*current-contexts* '()))
+                  (parameterize ((active-contexts '()))
                     (push-context "test")
                     (current-context)))
             

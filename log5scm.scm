@@ -136,9 +136,6 @@
    dump-senders
    make-sender
    add-output
-   <context
-   <message
-   <category
    define-output
    find-and-apply-senders
    active-contexts
@@ -285,8 +282,9 @@
                          (if ctx (sprintf "~A > " ctx) "")))
 
 
+
  ;; by default we output the category followed by the message
- (define default-output-format (make-parameter '(<context <category <message)))
+(define default-output-format (make-parameter '(<context <category <message)))
 
 
  ;; contexts
