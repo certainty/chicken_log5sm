@@ -143,6 +143,7 @@
    push-context
    pop-context
    call-with-context
+   *ignore-category-spec*
    with-context
    log-for)
    
