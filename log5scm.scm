@@ -29,94 +29,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
-(module log5scm-lolevel
-(default-logical-connective *defined-categories* *ignore-category-spec* expand-category-spec sender-matches-spec?)
 
-(import chicken scheme)
-(use extras data-structures ports srfi-1 srfi-69)
-
-;; 1) Categories
-;; Categories are just a way to organize your logmessages. You may
-;; arrange as many and as complex categories as you wish. They're,
-;; as the name suggests, a way to express buckets for
-;; log-messages. Those buckets may later be bound to senders and thus
-;; enable the program to put messages at the right places.
-
-;;by default all categories are or'ed together  
-(define default-logical-connective (make-parameter 'or))
-
-;;we need to store defined categories for late use
-;;NOTE: all categories inside this container are already expanded
-(define *defined-categories* (make-parameter (make-hash-table)))
-
-;; This variable can be set to a category spec that makes log-for
-;; calls expand into (void) when it matches.
-(define *ignore-category-spec*
-  (let ((spec (get-environment-variable "LOG5SCM_IGNORE_CATEGORIES")))
-    (and spec (with-input-from-string spec read)))) 
-
-;; Expansion is straight forward.
-;; Any occurence of a mere name is replaced by its expanded form.
-;; This is recursivly applied until the entire category is expanded
-;; Example:
-;; (define-category controller)
-;; (define-category model)
-;; (define-category app (or controller model))
-;; (define-category foo (not app (or app)))
-;;
-;; (expand-category-spec '(not app (or controller))) #=> (not (or controller model) (or controller))
-(define (expand-category-spec spec)
-  (cond
-   ((null? spec) '())
-   ((atom? spec) (expand-category spec))
-   ((list? spec)
-    `(,@(if (logical-connective? (car spec))
-            `(,(car spec) ,@(map expand-category-spec (cdr spec)))
-            `(,(default-logical-connective) ,@(map expand-category-spec spec)))))))
-
-(define (expand-category name)
-  (let ((spec (name->category name)))
-    (if spec  (if (list? spec) (expand-category-spec spec) spec) name)))
-
-(define (name->category name)
-  (hash-table-ref/default (*defined-categories*) name #f))
-
-(define (logical-connective? x)
-  (member x '(and not or)))
-
-(define (determine-variables spec)
-  (let ((positive '()) (negative '()))
-    (define (walk spec)
-      (cond
-       ((null? spec) #t)
-       ((atom? spec) (unless (logical-connective? spec)
-                       (set! positive (cons spec positive))))
-       ((eq? (car spec) 'not)
-        (set! negative (cons (cadr spec) negative)))
-       (else
-        (walk (car spec))
-        (walk (cdr spec)))))
-    (walk spec)
-    (values positive negative)))
-
-(define (sender-matches-spec?  sender-spec cat-spec)
-  (receive (pos neg) (determine-variables cat-spec)
-    (and (category-spec-matches? pos sender-spec) (not (category-spec-matches? neg sender-spec )))))
-
-(define (category-spec-matches? cat spec) 
-  (define (bool-walk spec)
-    (cond
-     ((null? spec) #f)
-     ((atom? spec) (list? (member spec cat)))
-     ((list? spec)
-      (case (car spec)
-        ((or) (any identity (map bool-walk (cdr spec))))
-        ((and) (every identity (map bool-walk (cdr spec))))
-        ((not) (not (every identity (map bool-walk (cdr spec)))))
-        (else (map bool-walk spec))))))
-  (bool-walk spec))
-
-)
 
 (module log5scm
   (default-logical-connective
@@ -143,19 +56,21 @@
    push-context
    pop-context
    call-with-context
-   *ignore-category-spec*
    with-context
    log-for)
    
   (import scheme chicken extras)
-  (require-library defstruct srfi-69 srfi-1 srfi-13 syslog)
+  (require-library defstruct srfi-69 srfi-1 srfi-13 syslog log5scm-lolevel)
   (import syslog)
   (import defstruct)
   (import srfi-69)
   (import (only data-structures identity atom?))
   (import (only srfi-13 string-join))
   (import (only srfi-1 any every))
-  (import log5scm-lolevel)
+
+  (begin-for-syntax (require-extension log5scm-lolevel))
+
+
 
 ;; Simple syntax to add categories to our categories-container
 ;; It allows basically two forms: simple and complex
@@ -328,7 +243,6 @@
           ((sender-handler sender)
            (string-join outputs " ")))) category-spec)))
 
- (import-for-syntax log5scm-lolevel)
 
  ;; Finally we can define our logging macro
  (define-syntax log-for
