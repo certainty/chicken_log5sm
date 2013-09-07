@@ -1,6 +1,6 @@
-;; 
+;;
 ;; Author: David Krentzlin
-;; 
+;;
 ;; Created: So Aug  8 18:46:54 2010 (CEST)
 ;; Last-Updated: Fr Nov 19 10:43:54 2010 (CET)
 ;;           By: David Krentzlin
@@ -8,9 +8,11 @@
 
 (use test)
 
+(load "../log5scm-lolevel.scm")
 (load "../log5scm.scm")
 
 (import log5scm)
+(import log5scm-lolevel)
 
 (test-group "categories"
             (test "Expansion: does work"
@@ -39,6 +41,23 @@
 
             )
 
+(test-group "sender matching"
+     (test "matches one of spec"
+           #t
+           (sender-matches-spec? '(or app error) '(app)))
+     (test "doesn't match if not at least one matches"
+           #f
+           (sender-matches-spec? '(or app error) '(info)))
+     (test "matches all of spec"
+           #t
+           (sender-matches-spec? '(and app error) '(app error)))
+     (test "doesn't match if one doesn't match"
+           #f
+           (sender-matches-spec? '(and app error) '(app)))
+     (test "wildcard match"
+           #t
+           (sender-matches-spec? '(or *) '(anything))))
+
 (test-group "senders")
 
 (test-group "output")
@@ -62,7 +81,7 @@
                   (parameterize ((active-contexts '()))
                     (push-context "test")
                     (current-context)))
-            
+
             )
 
 (test-group "integration")

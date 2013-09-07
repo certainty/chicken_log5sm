@@ -2,9 +2,9 @@
 ;; A logging library based on the ideas of CL's log5 http://common-lisp.net/project/log5
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; 
+;;
 ;; Copyright (c) <2010> David Krentzlin <david@lisp-unleashed.de>
-;; 
+;;
 ;;   Permission is hereby granted, free of charge, to any person
 ;;   obtaining a copy of this software and associated documentation
 ;;   files (the "Software"), to deal in the Software without
@@ -13,10 +13,10 @@
 ;;   copies of the Software, and to permit persons to whom the
 ;;   Software is furnished to do so, subject to the following
 ;;   conditions:
-;; 
+;;
 ;;   The above copyright notice and this permission notice shall be
 ;;   included in all copies or substantial portions of the Software.
-;; 
+;;
 ;;   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
 ;;   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
 ;;   OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
@@ -25,7 +25,7 @@
 ;;   WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 ;;   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 ;;   OTHER DEALINGS IN THE SOFTWARE.
-;; 
+;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
@@ -58,7 +58,8 @@
    call-with-context
    with-context
    log-for)
-   
+
+
   (import scheme chicken extras)
   (require-library defstruct srfi-69 srfi-1 srfi-13 syslog log5scm-lolevel)
   (import syslog)
@@ -102,7 +103,7 @@
  ;; Again senders are assiciated with an eq' hash-table
  (define *defined-senders* (make-parameter (make-hash-table)))
  (defstruct sender name output-format category-spec handler)
- 
+
  (define (add-sender sender)
    (let ((cats (sender-category-spec sender))
          (outputs (sender-output-format sender)))
@@ -131,7 +132,7 @@
          (lambda (message)
            (if (or (not port) (port-closed? port))
              (set! port (if (port? port-or-path) port-or-path (open-output-file port-or-path #:append))))
-           (fprintf port "~A~%" message)))    
+           (fprintf port "~A~%" message)))
        (let ((port (if (port? port-or-path) port-or-path (open-output-file port-or-path #:append))))
          (lambda (message)
            (fprintf port "~A~%" message)))))
@@ -141,7 +142,7 @@
      (openlog ident options facility)
      (syslog prio msg)
      (closelog)))
- 
+
  ;; To stard a sender we provide a syntax that looks like this
  ;; (start-sender name (sender-ctor) (category-spec) (output-format))
  ;; (start-sender name (sender-ctor) (category cat-spec))
@@ -158,7 +159,7 @@
       (add-sender (make-sender name: (quote name) handler: (sender-type arg1 ...) category-spec: (quote cat-spec) output-format: (quote output-format))))
      ((_ name (sender-type arg1 ...) (category cat-spec) (output output-format))
       (add-sender (make-sender name: (quote name) handler: (sender-type arg1 ...) category-spec: (quote  cat-spec) output-format: (quote output-format))))))
- 
+
  ;;dump currently defined senders to current-output-port
  (define (dump-senders)
    (hash-table-map (*defined-senders*) (lambda (k v) (sprintf "~A -> ~A | ~A " k (sender-category-spec v) (sender-output-format v)))))
@@ -170,7 +171,7 @@
  ;; Multiple outputs can be combined into a list of outputs that are
  ;; processed in order when a message is generated
 
-;; we need to remember some things about the current environment 
+;; we need to remember some things about the current environment
 (define current-message  (make-parameter ""))
 (define current-category (make-parameter #f))
 
@@ -179,7 +180,7 @@
  ;; as with senders and categories, outputs are stored in a hashtable
  ;; so that we can reference them by name
  (define *defined-outputs* (make-parameter (make-hash-table)))
- 
+
  (define (add-output name proc)
    (hash-table-set! (*defined-outputs*) name proc))
 
