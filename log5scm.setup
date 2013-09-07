@@ -1,8 +1,7 @@
-(define version "0.5.2")
+(define version "1.0.0")
 
 (compile -s -d0 -O3 log5scm-lolevel.scm -j log5scm-lolevel)
 (compile -s -d0 -O3 log5scm-lolevel.import.scm)
-
 
 (install-extension
   'log5scm-lolevel
