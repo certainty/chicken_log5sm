@@ -18,7 +18,6 @@
 (start-sender controller-sender (port-sender (current-error-port)) (output (controller-out message)) (category controller))
 (start-sender app-sender (port-sender (current-error-port))   (category app))
 
-(start-sender wildcard-sender (port-sender (current-output-port)) (category *))
 
 (start-sender lazy-port-sender (port-sender "test2.log" lazy: #t) (category model))
 
@@ -27,7 +26,6 @@
 
 (with-context "Testcontext"
  (log-for (model warn) "just a ~A" "Test")
- (with-context "Nested Context" 
+ (with-context "Nested Context"
    (log-for (app) "nother Test"))
  (log-for (app) "Final test"))
-
