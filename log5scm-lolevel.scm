@@ -2,9 +2,9 @@
 ;; A logging library based on the ideas of CL's log5 http://common-lisp.net/project/log5
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; 
+;;
 ;; Copyright (c) <2010> David Krentzlin <david@lisp-unleashed.de>
-;; 
+;;
 ;;   Permission is hereby granted, free of charge, to any person
 ;;   obtaining a copy of this software and associated documentation
 ;;   files (the "Software"), to deal in the Software without
@@ -13,10 +13,10 @@
 ;;   copies of the Software, and to permit persons to whom the
 ;;   Software is furnished to do so, subject to the following
 ;;   conditions:
-;; 
+;;
 ;;   The above copyright notice and this permission notice shall be
 ;;   included in all copies or substantial portions of the Software.
-;; 
+;;
 ;;   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
 ;;   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
 ;;   OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
@@ -25,9 +25,8 @@
 ;;   WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 ;;   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 ;;   OTHER DEALINGS IN THE SOFTWARE.
-;; 
+;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 
 
 (module log5scm-lolevel
@@ -43,7 +42,7 @@
 ;; log-messages. Those buckets may later be bound to senders and thus
 ;; enable the program to put messages at the right places.
 
-;;by default all categories are or'ed together  
+;;by default all categories are or'ed together
 (define default-logical-connective (make-parameter 'or))
 
 ;;we need to store defined categories for late use
@@ -54,7 +53,7 @@
 ;; calls expand into (void) when it matches.
 (define *ignore-category-spec*
   (let ((spec (get-environment-variable "LOG5SCM_IGNORE_CATEGORIES")))
-    (and spec (with-input-from-string spec read)))) 
+    (and spec (with-input-from-string spec read))))
 
 ;; Expansion is straight forward.
 ;; Any occurence of a mere name is replaced by its expanded form.
@@ -102,16 +101,20 @@
 
 (define (sender-matches-spec?  sender-spec cat-spec)
   (receive (pos neg) (determine-variables cat-spec)
-    (and (category-spec-matches? pos sender-spec) (not (category-spec-matches? neg sender-spec )))))
+    (and (category-spec-matches? pos sender-spec)
+         (or (null? neg)
+             (not (category-spec-matches? neg sender-spec))))))
 
-(define (category-spec-matches? cat spec) 
+(define (category-spec-matches? cat spec)
   (define (bool-walk spec)
     (cond
-     ((null? spec) #f)
+     ((null? spec)  #f)
+     ((eq? spec '*) #t)
      ((atom? spec) (list? (member spec cat)))
      ((list? spec)
       (case (car spec)
-        ((or) (any identity (map bool-walk (cdr spec))))
+        ((or)
+         (any identity (map bool-walk (cdr spec))))
         ((and) (every identity (map bool-walk (cdr spec))))
         ((not) (not (every identity (map bool-walk (cdr spec)))))
         (else (map bool-walk spec))))))
