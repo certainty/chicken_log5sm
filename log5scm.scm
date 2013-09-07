@@ -45,6 +45,7 @@
    start-sender
    expand-category-spec
    port-sender
+   structured-sender
    syslog-sender
    dump-senders
    make-sender
@@ -129,18 +130,23 @@
  (define (port-sender port-or-path #!key (lazy #f))
    (if lazy
        (let ((port #f))
-         (lambda (message)
+         (lambda (outputs)
            (if (or (not port) (port-closed? port))
              (set! port (if (port? port-or-path) port-or-path (open-output-file port-or-path #:append))))
-           (fprintf port "~A~%" message)))
+           (fprintf port "~A~%" (string-join outputs " "))))
        (let ((port (if (port? port-or-path) port-or-path (open-output-file port-or-path #:append))))
-         (lambda (message)
-           (fprintf port "~A~%" message)))))
+         (lambda (outputs)
+           (fprintf port "~A~%" (string-join outputs " "))))))
+
+ ;; the structured sender simply invokes the handler function
+ ;; so that you can process the log-structure however you like
+(define (structured-sender f)
+  (lambda (msg) (f (car msg))))
 
  (define (syslog-sender ident options facility prio)
    (lambda (msg)
      (openlog ident options facility)
-     (syslog prio msg)
+     (syslog prio (string-join msg " "))
      (closelog)))
 
  ;; To stard a sender we provide a syntax that looks like this
@@ -193,16 +199,17 @@
 
 
  ;; the following are standard outputters
-(define-output <message (current-message))
+(define-output <message (apply sprintf (current-message)))
 (define-output <category (sprintf "~A" (current-category)))
 (define-output <context (let ((ctx (current-context)))
                          (if ctx (sprintf "~A > " ctx) "")))
 
+;; output for structured logging
+(define-output <structured (car (current-message)))
 
 
- ;; by default we output the category followed by the message
+;; by default we output the category followed by the message
 (define default-output-format (make-parameter '(<context <category <message)))
-
 
  ;; contexts
 (define active-contexts (make-parameter '()))
@@ -233,16 +240,15 @@
  ;; this is the heart of the framework. It tries to determine any
  ;; senders that match the given category-spec and applies the
  ;; sender's handler to the passed message
- (define (find-and-apply-senders category-spec fmt . args)
-   (parameterize ((current-message (apply sprintf fmt args))
+ (define (find-and-apply-senders category-spec . data)
+   (parameterize ((current-message data)
                   (current-category (string-join (map symbol->string category-spec) "::")))
      (matching-senders-for-each
       (lambda (name sender)
         (let ((outputs (map (lambda (o)
                               ((hash-table-ref/default (*defined-outputs*) o (lambda () ""))))
                             (or (sender-output-format sender) (default-output-format)))))
-          ((sender-handler sender)
-           (string-join outputs " ")))) category-spec)))
+          ((sender-handler sender) outputs))) category-spec)))
 
 
  ;; Finally we can define our logging macro
@@ -254,5 +260,4 @@
         (if (or (not *ignore-category-spec*)
                 (sender-matches-spec? *ignore-category-spec* (expand-category-spec (strip-syntax spec))))
             `(find-and-apply-senders ',spec . ,(cddr expression))
-            '(void))))))
- )
+            '(void)))))))
