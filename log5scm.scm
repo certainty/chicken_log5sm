@@ -32,9 +32,7 @@
 
 
 (module log5scm
-  (default-logical-connective
-   *defined-categories*
-   *defined-senders*
+  (*defined-senders*
    *defined-outputs*
    current-category
    current-message
@@ -43,7 +41,6 @@
    dump-categories
    add-sender
    start-sender
-   expand-category-spec
    port-sender
    structured-sender
    syslog-sender
