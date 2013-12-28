@@ -58,7 +58,7 @@
    log-for)
 
 
-  (import scheme chicken extras)
+  (import scheme chicken extras log5scm-lolevel)
   (require-library defstruct srfi-69 srfi-1 srfi-13 syslog log5scm-lolevel)
   (import syslog)
   (import defstruct)
