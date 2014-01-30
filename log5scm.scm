@@ -68,6 +68,7 @@
   (import (only srfi-1 any every))
 
   (begin-for-syntax (require-extension log5scm-lolevel))
+  (import log5scm-lolevel)
 
 
 
